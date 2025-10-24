@@ -133,9 +133,9 @@ def phase_space_4d(
     return fig, axes
 
 r = 1 # reduced dimension
-sim_idx = 1 # which training sim to plot
-g_mmap = np.load(f"/global/cfs/cdirs/m3586/CBC_ROM/jack/example_data/ETG_{sim_idx}_g1.npy", mmap_mode="r")
-t = np.load(f"/global/cfs/cdirs/m3586/CBC_ROM/jack/example_data/ETG_{sim_idx}_g1_times.npy")
+sim_idx = 3 # which training sim to plot
+g_mmap = np.load(f"/global/cfs/cdirs/m3586/parametric_ETG_ROM/training_folders/ETG_sim_{sim_idx}/g1.npy", mmap_mode="r")
+t = np.load(f"/global/cfs/cdirs/m3586/parametric_ETG_ROM/training_folders/ETG_sim_{sim_idx}/g1_times.npy")
 
 # start_idx, end_idx = 3000, 4730 # what indices to time average over
 
@@ -143,13 +143,9 @@ t = np.load(f"/global/cfs/cdirs/m3586/CBC_ROM/jack/example_data/ETG_{sim_idx}_g1
 # Add this line to debug
 print(f"Loaded data shape: {g_mmap.shape}") 
 
-start_idx, end_idx = 3000, 4730
+# start_idx, end_idx = 3000, 4730
 
-# The slice g_mmap[:, 300:473] gets every *saved* time step between
-# global step 3000 and global step 4730. np.mean then averages them.
-# g_mean = np.mean(g_mmap[:, start_idx:end_idx], axis=1)
-g_mean = np.mean(g_mmap[:, start_idx:end_idx:10], axis=1) 
-# g_mean = np.mean(g_mmap, axis=1)     
+g_mean = np.mean(g_mmap[:, :], axis=1) 
 g4d    = g_mean.reshape(3, 168, 32, 8, order="C")
 del g_mmap, g_mean
 

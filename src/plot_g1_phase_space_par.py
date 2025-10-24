@@ -133,25 +133,21 @@ def phase_space_4d(
     return fig, axes
 
 r = 1 # reduced dimension
-sim_idx = 1 # which training sim to plot
-# g_mmap = np.load(f"/global/cfs/cdirs/m3586/CBC_ROM/jack/example_data/ETG_{sim_idx}_g1.npy", mmap_mode="r")
-# t = np.load(f"/global/cfs/cdirs/m3586/CBC_ROM/jack/example_data/ETG_{sim_idx}_g1_times.npy")
+sim_idx = 2 # which training sim to plot
+g_mmap = np.load(f"/pscratch/sd/j/jackk/mcf_turbulence/par_output_data.npy", mmap_mode="r")
+t = np.load(f"/pscratch/sd/j/jackk/mcf_turbulence/par_output_times.npy")
 
 # start_idx, end_idx = 3000, 4730 # what indices to time average over
 
-g_mmap = np.load(f"/pscratch/sd/j/jackk/mcf_turbulence/g1_mpi_data.npy", mmap_mode="r")
-t = np.load(f"/pscratch/sd/j/jackk/mcf_turbulence/g1_mpi_times.npy")
 
 # Add this line to debug
 print(f"Loaded data shape: {g_mmap.shape}") 
 
-start_idx, end_idx = 3000, 4730
+# start_idx, end_idx = 300, 473
+# start_idx, end_idx = 300, 473
 
-# The slice g_mmap[:, 300:473] gets every *saved* time step between
-# global step 3000 and global step 4730. np.mean then averages them.
-# g_mean = np.mean(g_mmap[:, start_idx:end_idx], axis=1)
-g_mean = np.mean(g_mmap[:, start_idx:end_idx:10], axis=1) 
-# g_mean = np.mean(g_mmap, axis=1)     
+
+g_mean = np.mean(g_mmap[:, :], axis=1)
 g4d    = g_mean.reshape(3, 168, 32, 8, order="F")
 del g_mmap, g_mean
 
