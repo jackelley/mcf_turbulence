@@ -62,6 +62,9 @@ for idx in range(1, 2):
 
     data_X = data.reshape(np.prod(data.shape[:-1]), data.shape[-1])
 
+    D_serial = np.sum(np.abs(data_X)**2)
+    print(f"SERIAL Checksum (D): {D_serial}")
+
     # these are already saved so im commenting these lines out
     # np.save(output_raw_data_filename, data_X)
     # np.save(output_times_filename, times)

@@ -10,7 +10,6 @@ N = np.prod(data_size)
 
 base_dir = "/global/cfs/cdirs/m3586/parametric_ETG_ROM/training_folders"
 
-
 def parse_num_steps_from_parameters(param_path: str) -> int:
     """
     Search parameters.dat for a line containing 'number of computed time steps'
@@ -30,7 +29,6 @@ def parse_num_steps_from_parameters(param_path: str) -> int:
         f"Could not find 'number of computed time steps' in {param_path}"
     )
 
-
 def main():
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -46,7 +44,6 @@ def main():
     displs_N[1:] = np.cumsum(counts_N)[:-1]
 
     size_per_rank = counts_N[rank]
-    # this rank's starting index for each time step
     start_idx_complex = displs_N[rank]
 
     idx = 3
@@ -72,72 +69,75 @@ def main():
     output_raw_data_filename = "/pscratch/sd/j/jackk/mcf_turbulence/par_output_data.npy"
     output_times_filename = "/pscratch/sd/j/jackk/mcf_turbulence/par_output_times.npy"
 
-    local_times = np.empty(n_time, dtype=np.float64)
-    local_data = np.empty(size_per_rank * 2 * n_time, dtype=np.float64, order="F")
+    local_sum_D = 0.0
 
-    local_data_2d = local_data.reshape((size_per_rank * 2, n_time), order="F")
+    # float buffer to read the interleaved data
+    local_data_block_float = np.empty(size_per_rank * 2, dtype=np.float64)
+    # complex buffer to hold the transformed data (this is what we send)
+    local_data_block_complex = np.empty(size_per_rank, dtype=np.complex128)
+    
+    # allocate final arrays
+    full_times = None
+    data_X = None
+    
+    if rank == 0:
+        print(f"Rank 0 allocating memory for {n_time} time steps...")
+        full_times = np.empty(n_time, dtype=np.float64)
+        data_X = np.empty((N, n_time), dtype=np.complex128, order="F")
+
+    recvcounts_complex = counts_N.astype(int)
+    recvdispls_complex = displs_N.astype(int)
 
     with open(input_filename, "rb") as fstream:
         for t in range(n_time):
+            if (t % 500 == 0 or t == n_time - 1):
+                print(f"Processing time step {t}/{n_time-1} on rank {rank}...")
+                
             offset = t * (2 * N + 1)  # offset is in units of float64
+            
             time_pointer = offset * 8  # byte offset
             fstream.seek(time_pointer)
-            local_times[t] = np.fromfile(fstream, dtype=np.float64, count=1)[0]
+            time_val = np.fromfile(fstream, dtype=np.float64, count=1)[0]
+            if rank == 0:
+                full_times[t] = time_val
 
             data_pointer = (offset + 1 + (start_idx_complex * 2)) * 8  # byte offset
             fstream.seek(data_pointer)
-            data_block = np.fromfile(fstream, dtype=np.float64, count = 2 * size_per_rank)
+            
+            fstream.readinto(local_data_block_float.data)
 
-            # data_real_flat = data_block[0::2]  # 0 to the end, every 2
-            # data_imag_flat = data_block[1::2]  # 1 to the end, every 2
+            local_real = local_data_block_float[0::2]
+            local_imag = local_data_block_float[1::2]
+            local_data_block_complex[:] = local_real + 1j * local_imag
 
-            # cant reshape here, data is not for a full time step
+            # checksum
+            local_sum_D += np.sum(np.abs(local_data_block_complex)**2)
+            
+            # we gather directly into the correct column of the final complex array
+            recvbuf_t = [data_X[:, t], recvcounts_complex, recvdispls_complex, MPI.COMPLEX16] if rank == 0 else None
 
-            # local_data[0, t] = data_real_flat
-            # local_data[1, t] = data_imag_flat
-
-            local_data_2d[:, t] = data_block
+            # send the complex buffer
+            comm.Gatherv(sendbuf=local_data_block_complex, 
+                         recvbuf=recvbuf_t, 
+                         root=0)
     
-    full_times = local_times  # all ranks already have this
+    total_D_parallel = comm.reduce(local_sum_D, op=MPI.SUM, root=0)
 
-    full_data_flat = None
     if rank == 0:
-        print(f"\nRoot gathering data from all {size} processes...")
-        full_data_flat = np.empty(2 * N * n_time, dtype=np.float64, order="F")
+        print(f"PARALLEL Checksum (D): {total_D_parallel}")
 
-    recvcounts_float = (counts_N * 2 * n_time).astype(int)
-    recvdispls_float = (displs_N * 2 * n_time).astype(int)
-
-    comm.Gatherv(sendbuf=local_data, 
-                 recvbuf=[full_data_flat, recvcounts_float, recvdispls_float, MPI.DOUBLE], 
-                 root=0)
-    
-    if rank == 0:
-        print("Gather complete. Reshaping data...")
+        print("All time steps gathered. Reshaping and saving...")
         
-        # full_data_flat is (2 * N * n_time) F-ordered
-        full_data_2d = full_data_flat.reshape((2 * N, n_time), order="F")
-
-        # de-interleave real and imaginary parts
-        # this slicing creates two (N, n_time) F-ordered arrays
-        data_real_flat = full_data_2d[0::2, :]
-        data_imag_flat = full_data_2d[1::2, :]
-
-        # combine into complex array (N, n_time)
-        # this is the 'data_X' from your example
-        data_X = data_real_flat + 1j * data_imag_flat
-
         # reshape to final physical + time dimensions
-        # data_size = (nx0, nz0, nv0, nw0)
         data = data_X.reshape((*data_size, n_time), order="F")
 
         print(f"Final data shape (data): {data.shape}")
         print(f"Final data_X shape (data_X): {data_X.shape}")
         
         np.save(output_raw_data_filename, data_X)
-        np.save(output_times_filename, local_times)
+        np.save(output_times_filename, full_times)
         print(f"Successfully processed {n_time} time steps.")
-        print(f"[OK] sim {idx}: wrote {n_time} time slices")
+        print(f"[OK] wrote {n_time} time slices")
 
 if __name__ == "__main__":
     main()
