@@ -133,9 +133,9 @@ def phase_space_4d(
     return fig, axes
 
 r = 1 # reduced dimension
-sim_idx = 3 # which training sim to plot
-g_mmap = np.load(f"/pscratch/sd/j/jackk/mcf_turbulence/par_output_data.npy", mmap_mode="r")
-t = np.load(f"/pscratch/sd/j/jackk/mcf_turbulence/par_output_times.npy")
+sim_idx = 1 # which training sim to plot
+g_mmap = np.load(f"/pscratch/sd/j/jackk/mcf_turbulence/par_output_data_sim{sim_idx}.npy", mmap_mode="r")
+t = np.load(f"/pscratch/sd/j/jackk/mcf_turbulence/par_output_times_sim{sim_idx}.npy")
 
 # start_idx, end_idx = 3000, 4730 # what indices to time average over
 

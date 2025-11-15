@@ -32,7 +32,7 @@ for idx in range(1, 2):
     sim_dir = os.path.join(base_dir, f"ETG_sim_{idx}")
     param_path = os.path.join(sim_dir, "parameters.dat")
     num_steps = parse_num_steps_from_parameters(param_path)
-    n_time = (num_steps + 1) // 10
+    n_time = (num_steps + 1)
 
     input_filename = os.path.join(base_dir, f"ETG_sim_{idx}", "g1.dat")
     output_raw_data_filename = os.path.join(base_dir, f"ETG_sim_{idx}", "g1_copy.npy")
@@ -62,8 +62,8 @@ for idx in range(1, 2):
 
     data_X = data.reshape(np.prod(data.shape[:-1]), data.shape[-1])
 
-    D_serial = np.sum(np.abs(data_X)**2)
-    print(f"SERIAL Checksum (D): {D_serial}")
+    Qstar_Q_serial = np.vdot(data_X, data_X).real
+    print(f"SERIAL Checksum (Q^H * Q): {Qstar_Q_serial}")
 
     # these are already saved so im commenting these lines out
     # np.save(output_raw_data_filename, data_X)

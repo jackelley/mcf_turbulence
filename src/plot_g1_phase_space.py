@@ -133,7 +133,7 @@ def phase_space_4d(
     return fig, axes
 
 r = 1 # reduced dimension
-sim_idx = 3 # which training sim to plot
+sim_idx = 1 # which training sim to plot
 g_mmap = np.load(f"/global/cfs/cdirs/m3586/parametric_ETG_ROM/training_folders/ETG_sim_{sim_idx}/g1.npy", mmap_mode="r")
 t = np.load(f"/global/cfs/cdirs/m3586/parametric_ETG_ROM/training_folders/ETG_sim_{sim_idx}/g1_times.npy")
 

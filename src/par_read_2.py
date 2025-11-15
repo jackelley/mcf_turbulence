@@ -46,7 +46,7 @@ def main():
     size_per_rank = counts_N[rank]
     start_idx_complex = displs_N[rank]
 
-    idx = 3
+    idx = 4
     sim_dir = os.path.join(base_dir, f"ETG_sim_{idx}")
     param_path = os.path.join(sim_dir, "parameters.dat")
     n_time = 0
@@ -90,7 +90,7 @@ def main():
 
     with open(input_filename, "rb") as fstream:
         for t in range(n_time):
-            if (t % 500 == 0 or t == n_time - 1):
+            if (t % 2000 == 0 or t == n_time - 1):
                 print(f"Processing time step {t}/{n_time-1} on rank {rank}...")
                 
             offset = t * (2 * N + 1)  # offset is in units of float64
@@ -124,7 +124,7 @@ def main():
     total_D_parallel = comm.reduce(local_sum_D, op=MPI.SUM, root=0)
 
     if rank == 0:
-        print(f"PARALLEL Checksum (D): {total_D_parallel}")
+        print(f"PARALLEL Checksum: {total_D_parallel}")
 
         print("All time steps gathered. Reshaping and saving...")
         
