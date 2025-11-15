@@ -237,7 +237,7 @@ def parse_arguments():
         nargs='+',
         type=int,
         required=True,
-        help="Grid dimensions, e.g., --grid 3 168 32 8"
+        help="Grid dimensions, e.g., --grid nx0 nz0 nv0 nw0"
     )
     
     parser.add_argument(
