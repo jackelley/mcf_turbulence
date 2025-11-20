@@ -6,7 +6,7 @@ from mpi4py import MPI
 from typing import Tuple, Optional, Any
 
 """
-Note that this file does not save any output, but the output directory argument is kept in case of future changes.
+This file saves and reads from the passed file, use parallel_read to just read in the dataset.
 """
 
 # Helper Functions (Data/File Parsing)
@@ -126,8 +126,7 @@ def read_distribution_parallel(
         comm.Abort(1)
 
     # allocate buffers
-    if rank == 0:
-        total_D = 0.0
+    local_sum_Qstar_Q = 0.0
     
     # float buffer to read the interleaved data
     local_data_block_float = np.empty(size_per_rank * 2, dtype=precision)
@@ -178,17 +177,33 @@ def read_distribution_parallel(
             local_data_block_complex[:] = local_real + 1j * local_imag
 
             # checksum Q^* Q
-            local_D = np.vdot(
+            local_sum_Qstar_Q = np.vdot(
                 local_data_block_complex, local_data_block_complex
             ).real
+            
+            # gather data to root
+            recvbuf_t = (
+                [data_X[:, t], recvcounts_complex, recvdispls_complex, mpi_complex_dtype] 
+                if rank == 0 
+                else None
+            )
 
-            timestep_D = comm.reduce(local_D, op=MPI.SUM, root=0)
-            if rank == 0:
-                total_D += timestep_D
+            comm.Gatherv(sendbuf=local_data_block_complex, 
+                         recvbuf=recvbuf_t, 
+                         root=0)  # MAKE NEW SCRIPT WHERE WE DONT GATHER THE DATA, JUST SEND THE CHECKSUM
     
     # finalize and return
+    total_Qstar_Q_parallel = comm.reduce(local_sum_Qstar_Q, op=MPI.SUM, root=0)
+
     if rank == 0:
-        print(f"PARALLEL Q^* Q = D: {total_D}")
+        print(f"All time steps gathered.")
+        print(f"PARALLEL Checksum (Sum(Q^H * Q)): {total_Qstar_Q_parallel}")
+        
+        # reshape to final physical + time dimensions
+        data_final = data_X.reshape((*grid_size, n_time), order="F")
+        print(f"Final data shape: {data_final.shape}")
+        
+        return data_final, full_times
     
     return None, None
 
@@ -285,6 +300,26 @@ def main():
         grid_size,
         precision=data_precision
     )
+    
+    # save data
+    if rank == 0:
+        if data is not None and times is not None:
+            print(f"Successfully read data. Shape: {data.shape}")
+            
+            # reshape back to (N, n_time) for saving
+            n_time = data.shape[-1]
+            N = np.prod(data.shape[:-1])
+            data_X_to_save = data.reshape(N, n_time, order="F")
+
+            print(f"Saving data_X with shape {data_X_to_save.shape} to {output_raw_data_filename}")
+            np.save(output_raw_data_filename, data_X_to_save)
+            
+            print(f"Saving times with shape {times.shape} to {output_times_filename}")
+            np.save(output_times_filename, times)
+            
+            print(f"[OK] wrote {n_time} time slices for sim {idx}")
+        else:
+            print("Error: Rank 0 did not receive data.")
 
 if __name__ == "__main__":
     main()
